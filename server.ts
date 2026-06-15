@@ -1,0 +1,39 @@
+// main.ts
+import { SmtpClient } from "jsr:@email/smtp";
+
+Deno.serve(async (req) => {
+  const url = new URL(req.url);
+  const recipient = url.searchParams.get("email");
+
+  if (!recipient) {
+    return new Response(
+      "Usage: ?email=someone@example.com",
+      { status: 400 }
+    );
+  }
+
+  const client = new SmtpClient();
+
+  try {
+    await client.connectTLS({
+      hostname: "smtp.gmail.com",
+      port: 465,
+      username: Deno.env.get("GMAIL_USER")!,
+      password: Deno.env.get("GMAIL_APP_PASSWORD")!,
+    });
+
+    await client.send({
+      from: Deno.env.get("GMAIL_USER")!,
+      to: recipient,
+      subject: "Hello from Deno Deploy",
+      content: "This email was sent when someone visited your URL.",
+    });
+
+    await client.close();
+
+    return new Response(`Sent email to ${recipient}`);
+  } catch (err) {
+    console.error(err);
+    return new Response("Failed to send email", { status: 500 });
+  }
+});
