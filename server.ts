@@ -2,10 +2,9 @@ import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const kv = await Deno.openKv();
 
-const RATE_WINDOW = 15 * 60 * 1000; // 15 min
-const QUEUE_KEY = ["email-queue"];
+const WINDOW_MS = 15 * 60 * 1000;
 
-// ================= HELPERS =================
+// ---------------- helpers ----------------
 
 function getIP(req: Request): string {
   return (
@@ -19,8 +18,8 @@ function cors(res: Response) {
   const headers = new Headers(res.headers);
 
   headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Headers", "content-type");
-  headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "*");
 
   return new Response(res.body, {
     status: res.status,
@@ -37,7 +36,7 @@ function json(data: unknown, status = 200) {
   );
 }
 
-// ================= RATE LIMIT =================
+// ---------------- rate limit (KV FIXED) ----------------
 
 async function checkRateLimit(ip: string, email: string) {
   const key = ["rate-limit", ip, email];
@@ -45,10 +44,10 @@ async function checkRateLimit(ip: string, email: string) {
 
   const record = await kv.get<number>(key);
 
-  if (record.value && now - record.value < RATE_WINDOW) {
+  if (record.value && now - record.value < WINDOW_MS) {
     return {
       ok: false,
-      retry: Math.ceil((RATE_WINDOW - (now - record.value)) / 60000),
+      retry: Math.ceil((WINDOW_MS - (now - record.value)) / 60000),
     };
   }
 
@@ -56,104 +55,72 @@ async function checkRateLimit(ip: string, email: string) {
   return { ok: true };
 }
 
-// ================= QUEUE =================
-
-async function queueEmail(data: any) {
-  const list = (await kv.get<any[]>(QUEUE_KEY)).value ?? [];
-
-  list.push({
-    ...data,
-    id: crypto.randomUUID(),
-    createdAt: Date.now(),
-  });
-
-  await kv.set(QUEUE_KEY, list);
-}
-
-// ================= EMAIL SENDER =================
-
-async function sendEmail(job: any) {
-  const client = new SMTPClient({
-    connection: {
-      hostname: "smtp.gmail.com",
-      port: 465,
-      tls: true,
-      auth: {
-        username: Deno.env.get("GMAIL_USER")!,
-        password: Deno.env.get("GMAIL_APP_PASSWORD")!,
-      },
-    },
-  });
-
-  await client.send({
-    from: Deno.env.get("GMAIL_USER")!,
-    to: job.recipient,
-    subject: "Message from API",
-    content: job.fallback ?? "HTML email",
-    html: job.html ?? undefined,
-  });
-}
-
-// ================= WORKER =================
-
-async function processQueue() {
-  const list = (await kv.get<any[]>(QUEUE_KEY)).value ?? [];
-  if (list.length === 0) return;
-
-  const [job, ...rest] = list;
-
-  try {
-    await sendEmail(job);
-    await kv.set(QUEUE_KEY, rest);
-  } catch (err) {
-    console.error("Email failed:", err);
-  }
-}
-
-setInterval(processQueue, 5000);
-
-// ================= SERVER =================
+// ---------------- server ----------------
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return cors(new Response(null, { status: 204 }));
-  if (req.method !== "POST") return json({ error: "Use POST" }, 405);
-
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    return json({ success: false, error: "Invalid JSON" }, 400);
+  if (req.method === "OPTIONS") {
+    return cors(new Response(null, { status: 204 }));
   }
 
-  const { recipient, html, fallback } = body;
+  if (req.method !== "GET") {
+    return json({ error: "Use GET" }, 405);
+  }
+
+  const url = new URL(req.url);
+  const recipient = url.searchParams.get("email");
+  const html = url.searchParams.get("html");
+  const fallback = url.searchParams.get("fallback");
 
   if (!recipient || (!html && !fallback)) {
     return json({
       success: false,
-      error: "Missing recipient or content",
+      error: "Missing ?email and content",
     }, 400);
   }
 
   const ip = getIP(req);
 
-  // RATE LIMIT (REAL protection)
+  // ✅ REAL KV RATE LIMIT (WORKS ACROSS INSTANCES)
   const limit = await checkRateLimit(ip, recipient);
 
   if (!limit.ok) {
-    return json(
-      {
-        success: false,
-        error: "Rate limited",
-        retry_in_minutes: limit.retry,
-      },
-      429,
-    );
+    return json({
+      success: false,
+      error: "Rate limited",
+      retry_in_minutes: limit.retry,
+    }, 429);
   }
 
-  await queueEmail({ recipient, html, fallback });
+  try {
+    const client = new SMTPClient({
+      connection: {
+        hostname: "smtp.gmail.com",
+        port: 465,
+        tls: true,
+        auth: {
+          username: Deno.env.get("GMAIL_USER")!,
+          password: Deno.env.get("GMAIL_APP_PASSWORD")!,
+        },
+      },
+    });
 
-  return json({
-    success: true,
-    message: "Queued for sending",
-  });
+    await client.send({
+      from: Deno.env.get("GMAIL_USER")!,
+      to: recipient,
+      subject: "Message from Deno Deploy",
+      content: fallback ?? "Open HTML version",
+      html: html ?? undefined,
+    });
+
+    return json({
+      success: true,
+      message: "Email sent",
+      to: recipient,
+    });
+  } catch (err) {
+    return json({
+      success: false,
+      error: String(err),
+    }, 500);
+  }
 });
