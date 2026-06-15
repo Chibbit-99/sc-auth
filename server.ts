@@ -1,5 +1,5 @@
-// main.ts
-import { SmtpClient } from "jsr:@email/smtp";
+// server.ts
+import { SmtpClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
@@ -8,7 +8,7 @@ Deno.serve(async (req) => {
   if (!recipient) {
     return new Response(
       "Usage: ?email=someone@example.com",
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -25,8 +25,8 @@ Deno.serve(async (req) => {
     await client.send({
       from: Deno.env.get("GMAIL_USER")!,
       to: recipient,
-      subject: "Hello from Deno Deploy",
-      content: "This email was sent when someone visited your URL.",
+      subject: "Hello from Deno",
+      content: "This email was sent when someone visited the URL.",
     });
 
     await client.close();
@@ -34,6 +34,6 @@ Deno.serve(async (req) => {
     return new Response(`Sent email to ${recipient}`);
   } catch (err) {
     console.error(err);
-    return new Response("Failed to send email", { status: 500 });
+    return new Response(`Error: ${err}`, { status: 500 });
   }
 });
