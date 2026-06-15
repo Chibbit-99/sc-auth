@@ -1,30 +1,14 @@
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-const kv = await Deno.openKv();
-
-const WINDOW_MS = 15 * 60 * 1000;
-
-// ---------------- helpers ----------------
-
-function getIP(req: Request): string {
-  return (
-    req.headers.get("x-forwarded-for") ??
-    req.headers.get("cf-connecting-ip") ??
-    "unknown"
-  );
-}
+const TURNSTILE_SECRET = Deno.env.get("TURNSTILE_SECRET")!;
 
 function cors(res: Response) {
   const headers = new Headers(res.headers);
-
   headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "*");
+  headers.set("Access-Control-Allow-Headers", "content-type");
+  headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
 
-  return new Response(res.body, {
-    status: res.status,
-    headers,
-  });
+  return new Response(res.body, { status: res.status, headers });
 }
 
 function json(data: unknown, status = 200) {
@@ -36,61 +20,56 @@ function json(data: unknown, status = 200) {
   );
 }
 
-// ---------------- rate limit (KV FIXED) ----------------
+// verify Turnstile token
+async function verifyTurnstile(token: string, ip: string) {
+  const form = new FormData();
+  form.append("secret", TURNSTILE_SECRET);
+  form.append("response", token);
+  form.append("remoteip", ip);
 
-async function checkRateLimit(ip: string, email: string) {
-  const key = ["rate-limit", ip, email];
-  const now = Date.now();
+  const res = await fetch(
+    "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+    { method: "POST", body: form },
+  );
 
-  const record = await kv.get<number>(key);
-
-  if (record.value && now - record.value < WINDOW_MS) {
-    return {
-      ok: false,
-      retry: Math.ceil((WINDOW_MS - (now - record.value)) / 60000),
-    };
-  }
-
-  await kv.set(key, now);
-  return { ok: true };
+  return await res.json();
 }
 
-// ---------------- server ----------------
+function getIP(req: Request) {
+  return (
+    req.headers.get("x-forwarded-for") ??
+    req.headers.get("cf-connecting-ip") ??
+    "unknown"
+  );
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return cors(new Response(null, { status: 204 }));
   }
 
-  if (req.method !== "GET") {
-    return json({ error: "Use GET" }, 405);
+  if (req.method !== "POST") {
+    return json({ error: "Use POST" }, 405);
   }
 
-  const url = new URL(req.url);
-  const recipient = url.searchParams.get("email");
-  const html = url.searchParams.get("html");
-  const fallback = url.searchParams.get("fallback");
-
-  if (!recipient || (!html && !fallback)) {
-    return json({
-      success: false,
-      error: "Missing ?email and content",
-    }, 400);
+  const { email, html, fallback, token } = await req.json();
+  if (!email || !token) {
+    return json({ error: "Missing email or token" }, 400);
   }
 
   const ip = getIP(req);
 
-  // ✅ REAL KV RATE LIMIT (WORKS ACROSS INSTANCES)
-  const limit = await checkRateLimit(ip, recipient);
+  // verify captcha
+  const verify = await verifyTurnstile(token, ip);
 
-  if (!limit.ok) {
+  if (!verify.success) {
     return json({
       success: false,
-      error: "Rate limited",
-      retry_in_minutes: limit.retry,
-    }, 429);
+      error: "Turnstile verification failed",
+    }, 403);
   }
 
+  // send email
   try {
     const client = new SMTPClient({
       connection: {
@@ -106,21 +85,14 @@ Deno.serve(async (req) => {
 
     await client.send({
       from: Deno.env.get("GMAIL_USER")!,
-      to: recipient,
-      subject: "Message from Deno Deploy",
-      content: fallback ?? "Open HTML version",
+      to: email,
+      subject: "Message from API",
+      content: fallback ?? "HTML email",
       html: html ?? undefined,
     });
 
-    return json({
-      success: true,
-      message: "Email sent",
-      to: recipient,
-    });
+    return json({ success: true });
   } catch (err) {
-    return json({
-      success: false,
-      error: String(err),
-    }, 500);
+    return json({ success: false, error: String(err) }, 500);
   }
 });
