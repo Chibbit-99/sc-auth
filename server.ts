@@ -4,6 +4,31 @@ const TURNSTILE_SECRET = Deno.env.get("TURNSTILE_SECRET")!;
 
 const DATABASE_URL = Deno.env.get("DATABASE_URL_SECRET")!;
 
+const CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const MOD = 62n ** 30n;
+const A = 123456789123456789123456789n; // must be coprime with MOD
+const B = 987654321987654321987654321n;
+
+function encodeBase62(n: bigint): string {
+    let s = "";
+
+    for (let i = 0; i < 30; i++) {
+        s = CHARS[Number(n % 62n)] + s;
+        n /= 62n;
+    }
+
+    return s;
+}
+
+export function generateToken(): string {
+    const x = BigInt(Date.now());
+
+    // Bijective linear permutation
+    const y = (A * x + B) % MOD;
+
+    return encodeBase62(y);
+}
+
 /**
  * Reads data from a path.
  */
@@ -114,7 +139,7 @@ function buildEmail(recipient: string) {
       </div>
 
       <p style="margin-top:20px;font-size:12px;color:#666;">
-        This is an automated message.
+        This is an automated message. Here is a random token :) -> ${generateToken()}
       </p>
     </div>
   `;
