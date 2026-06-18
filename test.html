@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sign in — Chibbit</title>
-  <meta name="description" content="Sign in to Simple Chibbit Space.">
+  <title>Sign in — SC Space</title>
+  <meta name="description" content="Sign in to SC Space.">
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <style>
     /* ============================= RESET & TOKENS ============================= */
@@ -51,7 +51,7 @@
     /* Sign in card */
     .signin-container{
       width:100%;
-      max-width:420px;
+      max-width:460px;
       padding:24px;
       position:relative;
       z-index:1;
@@ -85,6 +85,11 @@
     }
     .logo-text .grad{
       background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;
+    }
+    .logo-text {
+      font-weight:800;
+      font-size:1.45rem;
+      letter-spacing:-.02em;
     }
 
     /* Header */
@@ -195,6 +200,49 @@
   </style>
 </head>
 <body>
+  <!-- Hidden SVG defs for SC logo (from sc.html) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="scGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#6c8bff">
+          <animate attributeName="stop-color" values="#6c8bff;#b06cff;#6c8bff" dur="6s" repeatCount="indefinite"/>
+        </stop>
+        <stop offset="55%" stop-color="#b06cff">
+          <animate attributeName="stop-color" values="#b06cff;#ff6cc8;#b06cff" dur="6s" repeatCount="indefinite"/>
+        </stop>
+        <stop offset="100%" stop-color="#ff6cc8">
+          <animate attributeName="stop-color" values="#ff6cc8;#ffc862;#ff6cc8" dur="6s" repeatCount="indefinite"/>
+        </stop>
+      </linearGradient>
+      <linearGradient id="scGlass" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="rgba(255,255,255,.32)"/>
+        <stop offset="60%" stop-color="rgba(255,255,255,0)"/>
+      </linearGradient>
+      <symbol id="sc-logo" viewBox="0 0 64 64">
+        <!-- tile -->
+        <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#scGrad)"/>
+        <rect x="3.2" y="3.2" width="57.6" height="57.6" rx="14.8" fill="none" stroke="url(#scGlass)" stroke-width="1.6" opacity=".9"/>
+        <rect x="2" y="2" width="60" height="30" rx="16" fill="url(#scGlass)" opacity=".5"/>
+        <!-- orbit ring + satellite -->
+        <g transform="rotate(-20 32 32)" opacity=".85">
+          <path d="M59 32 a27 10.5 0 1 1 -54 0 a27 10.5 0 1 1 54 0" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="1.2" stroke-dasharray="2.5 3.5"/>
+          <circle r="2.3" fill="#fff">
+            <animateMotion dur="7s" repeatCount="indefinite" path="M59 32 a27 10.5 0 1 1 -54 0 a27 10.5 0 1 1 54 0"/>
+          </circle>
+        </g>
+        <!-- SC monogram (drawn letterforms) -->
+        <g fill="none" stroke="#fff" stroke-width="5.4" stroke-linecap="round">
+          <path d="M28.6 23.6 C28 19.9 24.9 18.2 21.7 18.2 C18 18.2 15.2 20.4 15.2 23.7 C15.2 31.6 29.3 28.3 29.3 36.5 C29.3 40.1 26 42 22.3 42 C18.5 42 15.3 40 14.8 36.4"/>
+          <path d="M49.2 24.3 C47.4 20.5 44 18.3 40.4 18.3 C34.7 18.3 31.4 23.4 31.4 30.1 C31.4 36.8 34.7 41.9 40.4 41.9 C44 41.9 47.4 39.7 49.2 35.9"/>
+        </g>
+        <!-- spark accent -->
+        <path d="M51.5 13.2 l1.1 2.6 2.6 1.1 -2.6 1.1 -1.1 2.6 -1.1 -2.6 -2.6 -1.1 2.6 -1.1 Z" fill="#fff" opacity=".95">
+          <animate attributeName="opacity" values=".95;.3;.95" dur="2.6s" repeatCount="indefinite"/>
+        </path>
+      </symbol>
+    </defs>
+  </svg>
+
   <!-- Background FX -->
   <canvas id="bg-canvas" class="bg-canvas"></canvas>
   <div class="blob b1"></div>
@@ -206,23 +254,18 @@
     <div class="signin-card">
       <!-- Logo -->
       <div class="logo">
-        <div class="mark">
-          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M24 4L42 14V34L24 44L6 34V14L24 4Z" fill="#6c8bff"/>
-            <path d="M24 4L42 14V34L24 44L6 34V14L24 4Z" stroke="#b06cff" stroke-width="3"/>
-            <circle cx="24" cy="24" r="7" fill="#fff"/>
-            <path d="M17 20L24 27L31 20" stroke="#070a14" stroke-width="3" stroke-linecap="round"/>
-          </svg>
+        <div class="mark" style="width:52px;height:52px">
+          <svg width="52" height="52"><use href="#sc-logo"/></svg>
         </div>
         <div class="logo-text">
-          <span class="grad">Chibbit</span>
+          <span class="grad">SC Space</span>
         </div>
       </div>
 
       <!-- Header -->
       <div class="signin-header">
         <h1>Welcome back</h1>
-        <p>Sign in to continue to your Chibbit workspace</p>
+        <p>Sign in to continue to your SC Space workspace</p>
         
         <div class="account-note">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
