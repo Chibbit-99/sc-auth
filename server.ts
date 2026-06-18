@@ -6,7 +6,7 @@ const DATABASE_URL = Deno.env.get("DATABASE_URL_SECRET")!;
 
 const CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const MOD = 62n ** 30n;
-const A = 123456789123456789123456789n; // must be coprime with MOD
+const A = 123456789123456789123456789n;
 const B = 987654321987654321987654321n;
 
 function encodeBase62(n: bigint): string {
@@ -22,71 +22,44 @@ function encodeBase62(n: bigint): string {
 
 export function generateToken(): string {
     const x = BigInt(Date.now());
-
-    // Bijective linear permutation
     const y = (A * x + B) % MOD;
-
     return encodeBase62(y);
 }
 
-/**
- * Reads data from a path.
- */
 export async function readPath(path: string = ""): Promise<any> {
     const url = `${DATABASE_URL}/${path}.json`;
-
     const response = await fetch(url);
-
-    if (!response.ok) {
-        throw new Error(`Read failed: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`Read failed: ${response.status}`);
     return await response.json();
 }
 
-/**
- * Updates data at a path (PATCH).
- */
 export async function updatePath(path: string, data: any): Promise<void> {
     const url = `${DATABASE_URL}/${path}.json`;
-
     const response = await fetch(url, {
         method: "PATCH",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
     });
-
-    if (!response.ok) {
-        throw new Error(`Update failed: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Update failed: ${response.status}`);
 }
 
-/**
- * Deletes data at a path.
- */
 export async function deletePath(path: string): Promise<void> {
     const url = `${DATABASE_URL}/${path}.json`;
-
-    const response = await fetch(url, {
-        method: "DELETE"
-    });
-
-    if (!response.ok) {
-        throw new Error(`Delete failed: ${response.status}`);
-    }
+    const response = await fetch(url, { method: "DELETE" });
+    if (!response.ok) throw new Error(`Delete failed: ${response.status}`);
 }
 
 // ---------------- CORS ----------------
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "*",
+};
+
 function cors(res: Response) {
   const headers = new Headers(res.headers);
-  headers.set("Access-Control-Allow-Origin", "*");
-  // Add POST, PATCH, and DELETE to the allowed methods
-  headers.set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "*");
-  
+  for (const [k, v] of Object.entries(CORS_HEADERS)) headers.set(k, v);
   return new Response(res.body, { status: res.status, headers });
 }
 
@@ -125,7 +98,7 @@ async function verifyTurnstile(token: string, ip: string) {
   return await res.json();
 }
 
-// ---------------- EMAIL TEMPLATE (INTERNAL) ----------------
+// ---------------- EMAIL TEMPLATE ----------------
 
 function buildEmail(recipient: string) {
   const html = `
@@ -145,8 +118,7 @@ function buildEmail(recipient: string) {
     </div>
   `;
 
-  const fallback =
-    `Hello! This is an automated email sent to ${recipient}.`;
+  const fallback = `Hello! This is an automated email sent to ${recipient}.`;
 
   return { html, fallback };
 }
@@ -154,46 +126,41 @@ function buildEmail(recipient: string) {
 // ---------------- SERVER ----------------
 
 Deno.serve(async (req) => {
+  // ✅ OPTIONS must return CORS headers directly, not via cors() wrapper
   if (req.method === "OPTIONS") {
-    return cors(new Response(null, { status: 204 }));
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
   }
 
-  if (req.method !== "GET") {
-    return json({ error: "Use GET" }, 405);
-  }
-
-  const url = new URL(req.url);
-
-  const email = url.searchParams.get("email");
-  const token = url.searchParams.get("token");
-
-  if (!email || !token) {
-    return json({
-      success: false,
-      error: "Missing ?email and ?token",
-    }, 400);
-  }
-
-  const ip = getIP(req);
-
-  // ---------------- VERIFY TURNSTILE ----------------
-
-  const verify = await verifyTurnstile(token, ip);
-
-  if (!verify.success) {
-    return json({
-      success: false,
-      error: "Turnstile verification failed",
-    }, 403);
-  }
-
-  // ---------------- BUILD EMAIL ----------------
-
-  const { html, fallback } = buildEmail(email);
-
-  // ---------------- SEND EMAIL ----------------
-
+  // ✅ Wrap everything so any uncaught error still returns CORS headers
   try {
+    if (req.method !== "GET") {
+      return json({ error: "Use GET" }, 405);
+    }
+
+    const url = new URL(req.url);
+    const email = url.searchParams.get("email");
+    const token = url.searchParams.get("token");
+
+    if (!email || !token) {
+      return json({ success: false, error: "Missing ?email and ?token" }, 400);
+    }
+
+    const ip = getIP(req);
+
+    // ---------------- VERIFY TURNSTILE ----------------
+
+    const verify = await verifyTurnstile(token, ip);
+
+    if (!verify.success) {
+      return json({ success: false, error: "Turnstile verification failed" }, 403);
+    }
+
+    // ---------------- BUILD EMAIL ----------------
+
+    const { html, fallback } = buildEmail(email);
+
+    // ---------------- SEND EMAIL ----------------
+
     const client = new SMTPClient({
       connection: {
         hostname: "smtp.gmail.com",
@@ -214,15 +181,10 @@ Deno.serve(async (req) => {
       html,
     });
 
-    return json({
-      success: true,
-      message: "Email sent",
-      to: email,
-    });
+    return json({ success: true, message: "Email sent", to: email });
+
   } catch (err) {
-    return json({
-      success: false,
-      error: String(err),
-    }, 500);
+    // ✅ Errors are now caught here and always return with CORS headers
+    return json({ success: false, error: String(err) }, 500);
   }
 });
