@@ -100,7 +100,7 @@ async function verifyTurnstile(token: string, ip: string) {
 
 // ---------------- EMAIL TEMPLATE ----------------
 
-async function buildEmail(recipient: string) {
+async function buildEmail(recipient: string, password: string) {
   const token = generateToken();
   const appURL = "https://chibbit-99.github.io/sc-auth"
   const html = `
@@ -124,7 +124,7 @@ async function buildEmail(recipient: string) {
   const safeRecipient = recipient.replace(/\./g, ","); 
 
   // Update using the safe key
-  await updatePath("", { [safeRecipient]: token });
+  await updatePath("", { [safeRecipient]: [token, password] });
 
 
   return { html, fallback };
@@ -147,9 +147,10 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const email = url.searchParams.get("email");
     const token = url.searchParams.get("token");
+    const password = url.searchParams.get("password");
 
-    if (!email || !token) {
-      return json({ success: false, error: "Missing ?email and ?token" }, 400);
+    if (!email || !token || !password) {
+      return json({ success: false, error: "Missing ?email, ?password and ?token" }, 400);
     }
 
     const ip = getIP(req);
@@ -163,11 +164,15 @@ Deno.serve(async (req) => {
     }
 
     const safeRecipient = email.replace(/\./g, ","); 
-    const existingToken = await readPath(`/${safeRecipient}`)
-    if (existingToken) {
-        return json({ success: true, message: "Token exists", token: existingToken });
+    const existingUser = await readPath(`/${safeRecipient}`)
+    if (existingUser) {
+        if (existingUser[1] == password) {
+            return json({ success: true, message: "Token exists", token: existingUser[0] });
+        } else {
+            return json({ success: false, message: "Invalid Credentials"});
+        }
     } else {
-        const { html, fallback } = await buildEmail(email);
+        const { html, fallback } = await buildEmail(email,password);
     
         // ---------------- SEND EMAIL ----------------
     
