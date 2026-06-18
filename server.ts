@@ -120,7 +120,8 @@ async function buildEmail(recipient: string) {
   `;
 
   const fallback = `Hello! This is an automated email sent to ${recipient}.`;
-  await updatePath("",`{"${recipient}": "${token}"}`);
+  await updatePath("", { [recipient]: token });
+
 
   return { html, fallback };
 }
