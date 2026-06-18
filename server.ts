@@ -102,19 +102,20 @@ async function verifyTurnstile(token: string, ip: string) {
 
 async function buildEmail(recipient: string) {
   const token = generateToken();
+  const appURL = "https://chibbit-99.github.io/sc-auth"
   const html = `
     <div style="font-family:Arial;padding:20px;line-height:1.5">
-      <h2 style="color:#4f46e5;">Hello 👋</h2>
+      <h2 style="color:#4f46e5;">Welcome to SC Space!! 👋</h2>
 
-      <p>This email was automatically sent when you triggered the API.</p>
+      <p>If you did not request this email you can safely ignore it.</p>
 
       <div style="margin-top:20px;padding:15px;background:#f3f4f6;border-radius:8px;">
-        <p><b>Recipient:</b> ${recipient}</p>
-        <p><b>Status:</b> Success</p>
+        <p><b>Your magic link: </b><a href=${appURL}?token=${token}>Click Here!!</a></p>
+        <p><b>Click the above link to complete the signup process.</b></p>
       </div>
 
       <p style="margin-top:20px;font-size:12px;color:#666;">
-        This is an automated message. Here is a random token :) -> ${token}
+        This is an automated message. Recipient: ${recipient}
       </p>
     </div>
   `;
