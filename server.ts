@@ -161,34 +161,36 @@ Deno.serve(async (req) => {
       return json({ success: false, error: "Turnstile verification failed" }, 403);
     }
 
-    // ---------------- BUILD EMAIL ----------------
-
-    const { html, fallback } = await buildEmail(email);
-
-    // ---------------- SEND EMAIL ----------------
-
-    const client = new SMTPClient({
-      connection: {
-        hostname: "smtp.gmail.com",
-        port: 465,
-        tls: true,
-        auth: {
-          username: Deno.env.get("GMAIL_USER")!,
-          password: Deno.env.get("GMAIL_APP_PASSWORD")!,
-        },
-      },
-    });
-
-    await client.send({
-      from: Deno.env.get("GMAIL_USER")!,
-      to: email,
-      subject: "Automated Message",
-      content: fallback,
-      html,
-    });
-
-    return json({ success: true, message: "Email sent", to: email });
-
+    const safeRecipient = recipient.replace(/\./g, ","); 
+    const existingToken = await readPath(`/${safeRecipient}`)
+    if (existingToken) {
+        return json({ success: true, message: "Token exists", token: existingToken });
+    } else {
+        const { html, fallback } = await buildEmail(email);
+    
+        // ---------------- SEND EMAIL ----------------
+    
+        const client = new SMTPClient({
+          connection: {
+            hostname: "smtp.gmail.com",
+            port: 465,
+            tls: true,
+            auth: {
+              username: Deno.env.get("GMAIL_USER")!,
+              password: Deno.env.get("GMAIL_APP_PASSWORD")!,
+            },
+          },
+        });
+    
+        await client.send({
+          from: Deno.env.get("GMAIL_USER")!,
+          to: email,
+          subject: "Automated Message",
+          content: fallback,
+          html,
+        });
+        return json({ success: true, message: "Email sent", to: email });
+    }
   } catch (err) {
     // ✅ Errors are now caught here and always return with CORS headers
     return json({ success: false, error: String(err) }, 500);
