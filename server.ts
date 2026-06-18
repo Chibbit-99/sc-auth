@@ -83,9 +83,10 @@ export async function deletePath(path: string): Promise<void> {
 function cors(res: Response) {
   const headers = new Headers(res.headers);
   headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  // Add POST, PATCH, and DELETE to the allowed methods
+  headers.set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
   headers.set("Access-Control-Allow-Headers", "*");
-
+  
   return new Response(res.body, { status: res.status, headers });
 }
 
