@@ -120,7 +120,7 @@ async function buildEmail(recipient: string) {
     </div>
   `;
 
-  const fallback = `Hello! This is an automated email sent to ${recipient}.`;
+  const fallback = `Welcome to SC Space! To complete the signup email, click this link: ${appURL}?token=${token}. This is an automated message. Recipient: ${recipient} If you did not request this email you can safely ignore it.`;
   const safeRecipient = recipient.replace(/\./g, ","); 
 
   // Update using the safe key
@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
         await client.send({
           from: Deno.env.get("GMAIL_USER")!,
           to: email,
-          subject: "Automated Message",
+          subject: "SC Space signup verification email",
           content: fallback,
           html,
         });
