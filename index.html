@@ -1,55 +1,726 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in — SC Space</title>
+  <meta name="description" content="Sign in to SC Space.">
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <style>
+    /* ============================= RESET & TOKENS ============================= */
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#070a14;
+      --bg-soft:#0c1122;
+      --card:#10172b;
+      --card-2:#141d36;
+      --line:rgba(140,160,255,.14);
+      --txt:#eef1ff;
+      --muted:#9aa6c8;
+      --c1:#6c8bff;
+      --c2:#b06cff;
+      --c3:#ff6cc8;
+      --c4:#42e2b8;
+      --c5:#ffc862;
+      --grad:linear-gradient(100deg,var(--c1),var(--c2) 40%,var(--c3) 75%,var(--c5));
+      --r:18px;
+      --ease:cubic-bezier(.22,1,.36,1);
+    }
+    html{scroll-behavior:smooth}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      background:var(--bg);color:var(--txt);overflow-x:hidden;line-height:1.6;
+      min-height:100vh;display:flex;align-items:center;justify-content:center;
+    }
+    ::selection{background:rgba(108,139,255,.4)}
+    a{color:inherit;text-decoration:none}
+    button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+    /* Background effects */
+    .bg-canvas{position:fixed;inset:0;z-index:-3;width:100%;height:100%}
+    .blob{position:fixed;border-radius:50%;filter:blur(90px);opacity:.25;z-index:-2;pointer-events:none;will-change:transform}
+    .blob.b1{width:520px;height:520px;background:#3b55d8;top:-160px;left:-120px;animation:drift1 22s ease-in-out infinite}
+    .blob.b2{width:460px;height:460px;background:#7a3bd8;top:30vh;right:-180px;animation:drift2 26s ease-in-out infinite}
+    .blob.b3{width:420px;height:420px;background:#d83b9a;bottom:-140px;left:30vw;animation:drift3 30s ease-in-out infinite;opacity:.18}
+    @keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(80px,60px) scale(1.15)}}
+    @keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-90px,-50px) scale(.9)}}
+    @keyframes drift3{0%,100%{transform:translate(0,0)}50%{transform:translate(60px,-80px)}}
+    .grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");}
+
+    /* Sign in card */
+    .signin-container{
+      width:100%;
+      max-width:460px;
+      padding:24px;
+      position:relative;
+      z-index:1;
+    }
+    .signin-card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--r);
+      padding:44px 40px;
+      box-shadow:0 25px 60px rgba(0,0,0,.45);
+      position:relative;
+      overflow:hidden;
+    }
+    .signin-card::before{
+      content:'';
+      position:absolute;top:0;left:0;right:0;height:1px;
+      background:linear-gradient(to right,transparent,var(--c1),transparent);
+      opacity:.4;
+    }
+
+    /* Logo */
+    .logo{
+      display:flex;align-items:center;gap:12px;margin-bottom:32px;justify-content:center;
+    }
+    .logo .mark{
+      width:42px;height:42px;filter:drop-shadow(0 0 12px rgba(108,139,255,.5));
+    }
+    .logo .mark svg{display:block;width:100%;height:100%}
+    .logo-text{
+      font-weight:800;font-size:1.45rem;letter-spacing:-.02em;
+    }
+    .logo-text .grad{
+      background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;
+    }
+
+    /* Header */
+    .signin-header{text-align:center;margin-bottom:32px}
+    .signin-header h1{
+      font-size:1.85rem;font-weight:800;letter-spacing:-.03em;margin-bottom:8px;
+    }
+    .signin-header p{
+      color:var(--muted);font-size:0.97rem;line-height:1.5;
+    }
+    .account-note{
+      margin-top:18px;padding:14px 18px;
+      background:rgba(66,226,184,.08);
+      border:1px solid rgba(66,226,184,.2);
+      border-radius:12px;
+      font-size:0.88rem;color:#a1e8c9;
+      display:flex;align-items:center;gap:10px;
+    }
+    .account-note svg{flex-shrink:0}
+
+    /* Form */
+    .form-group{margin-bottom:22px}
+    label{
+      display:block;font-size:0.85rem;font-weight:600;color:var(--muted);
+      margin-bottom:8px;letter-spacing:.3px;
+    }
+    .email-input{
+      width:100%;
+      background:var(--bg-soft);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:15px 18px;
+      font-size:1.05rem;
+      color:var(--txt);
+      transition:all .2s var(--ease);
+      outline:none;
+    }
+    .email-input:focus{
+      border-color:var(--c1);
+      box-shadow:0 0 0 4px rgba(108,139,255,.15);
+    }
+    .email-input::placeholder{color:#6f7aa8}
+
+    /* Password row — CORRECTED: input wide, button narrow */
+    .password-row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+    .password-row .email-input{
+      flex: 1 !important;
+      width: auto !important;
+      min-width: 0 !important;
+    }
+    .generate-btn{
+      flex: 0 0 44px !important;
+      width: 44px !important;
+      height:44px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:12px;
+      padding:0;
+      min-width:44px;
+      font-size:20px;
+      line-height:1;
+    }
+
+    /* Turnstile wrapper */
+    .turnstile-wrapper{
+      margin:24px 0 12px;
+      display:flex;justify-content:center;
+    }
+
+    /* Button */
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:10px;
+      width:100%;padding:16px 24px;border-radius:99px;
+      font-weight:700;font-size:1.02rem;transition:all .25s var(--ease);
+      position:relative;overflow:hidden;
+    }
+    .btn-primary{
+      background:var(--grad);
+      background-size:200% 200%;
+      color:#fff;
+      box-shadow:0 8px 28px rgba(108,139,255,.35);
+      animation:gradShift 6s ease infinite;
+    }
+    .btn-primary:hover{
+      transform:translateY(-2px);
+      box-shadow:0 14px 42px rgba(176,108,255,.5);
+    }
+    .btn-primary:active{transform:scale(0.985)}
+    .btn-primary:disabled{
+      opacity:0.6;cursor:not-allowed;transform:none;
+    }
+    .btn-ghost{
+      border:1px solid var(--line);
+      color:var(--muted);
+      background:rgba(140,160,255,.06);
+      font-weight:600;
+    }
+    .btn-ghost:hover{
+      background:rgba(140,160,255,.12);
+      color:var(--txt);
+      border-color:rgba(140,160,255,.4);
+    }
+    .btn .shine{
+      position:absolute;top:0;left:-80%;width:50%;height:100%;
+      background:linear-gradient(105deg,transparent,rgba(255,255,255,.35),transparent);
+      transform:skewX(-20deg);animation:shine 3.5s ease infinite;
+    }
+    @keyframes gradShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+    @keyframes shine{0%,60%{left:-80%}100%{left:160%}}
+
+    /* Status messages */
+    .status{
+      margin-top:20px;padding:16px 20px;border-radius:14px;
+      font-size:0.95rem;display:none;align-items:center;gap:12px;
+    }
+    .status.success{
+      background:rgba(66,226,184,.1);
+      border:1px solid rgba(66,226,184,.3);
+      color:#a1e8c9;
+    }
+    .status.error{
+      background:rgba(255,108,108,.1);
+      border:1px solid rgba(255,108,108,.3);
+      color:#ff9b9b;
+    }
+    .status.show{display:flex}
+
+    /* Custom Modal */
+    .modal-overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.75);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:9999;
+    }
+    .modal-overlay.show{display:flex}
+    .modal{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:32px 36px;
+      max-width:380px;
+      width:90%;
+      box-shadow:0 30px 70px rgba(0,0,0,.6);
+      text-align:center;
+    }
+    .modal h3{
+      font-size:1.25rem;
+      margin-bottom:16px;
+      font-weight:700;
+    }
+    .modal p{
+      color:var(--muted);
+      font-size:0.98rem;
+      line-height:1.5;
+      margin-bottom:28px;
+    }
+    .modal-buttons{
+      display:flex;
+      gap:12px;
+      justify-content:center;
+    }
+    .modal-btn{
+      padding:12px 26px;
+      border-radius:999px;
+      font-weight:600;
+      font-size:0.95rem;
+      cursor:pointer;
+      transition:all .2s ease;
+    }
+    .modal-btn.primary{
+      background:var(--grad);
+      color:white;
+      border:none;
+    }
+    .modal-btn.secondary{
+      background:transparent;
+      border:1px solid var(--line);
+      color:var(--txt);
+    }
+    .modal-btn.secondary:hover{
+      background:rgba(140,160,255,.08);
+    }
+
+    /* Footer */
+    .signin-footer{
+      margin-top:32px;text-align:center;
+      font-size:0.8rem;color:var(--muted);
+    }
+    .signin-footer a{color:var(--c1);font-weight:600}
+
+    /* Responsive */
+    @media (max-width:480px){
+      .signin-card{padding:36px 26px}
+    }
+  </style>
 </head>
-
 <body>
+  <!-- Hidden SVG defs for SC logo -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="scGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#6c8bff">
+          <animate attributeName="stop-color" values="#6c8bff;#b06cff;#6c8bff" dur="6s" repeatCount="indefinite"/>
+        </stop>
+        <stop offset="55%" stop-color="#b06cff">
+          <animate attributeName="stop-color" values="#b06cff;#ff6cc8;#b06cff" dur="6s" repeatCount="indefinite"/>
+        </stop>
+        <stop offset="100%" stop-color="#ff6cc8">
+          <animate attributeName="stop-color" values="#ff6cc8;#ffc862;#ff6cc8" dur="6s" repeatCount="indefinite"/>
+        </stop>
+      </linearGradient>
+      <linearGradient id="scGlass" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="rgba(255,255,255,.32)"/>
+        <stop offset="60%" stop-color="rgba(255,255,255,0)"/>
+      </linearGradient>
+      <symbol id="sc-logo" viewBox="0 0 64 64">
+        <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#scGrad)"/>
+        <rect x="3.2" y="3.2" width="57.6" height="57.6" rx="14.8" fill="none" stroke="url(#scGlass)" stroke-width="1.6" opacity=".9"/>
+        <rect x="2" y="2" width="60" height="30" rx="16" fill="url(#scGlass)" opacity=".5"/>
+        <g transform="rotate(-20 32 32)" opacity=".85">
+          <path d="M59 32 a27 10.5 0 1 1 -54 0 a27 10.5 0 1 1 54 0" fill="none" stroke="rgba(255,255,255,.38)" stroke-width="1.2" stroke-dasharray="2.5 3.5"/>
+          <circle r="2.3" fill="#fff">
+            <animateMotion dur="7s" repeatCount="indefinite" path="M59 32 a27 10.5 0 1 1 -54 0 a27 10.5 0 1 1 54 0"/>
+          </circle>
+        </g>
+        <g fill="none" stroke="#fff" stroke-width="5.4" stroke-linecap="round">
+          <path d="M28.6 23.6 C28 19.9 24.9 18.2 21.7 18.2 C18 18.2 15.2 20.4 15.2 23.7 C15.2 31.6 29.3 28.3 29.3 36.5 C29.3 40.1 26 42 22.3 42 C18.5 42 15.3 40 14.8 36.4"/>
+          <path d="M49.2 24.3 C47.4 20.5 44 18.3 40.4 18.3 C34.7 18.3 31.4 23.4 31.4 30.1 C31.4 36.8 34.7 41.9 40.4 41.9 C44 41.9 47.4 39.7 49.2 35.9"/>
+        </g>
+        <path d="M51.5 13.2 l1.1 2.6 2.6 1.1 -2.6 1.1 -1.1 2.6 -1.1 -2.6 -2.6 -1.1 2.6 -1.1 Z" fill="#fff" opacity=".95">
+          <animate attributeName="opacity" values=".95;.3;.95" dur="2.6s" repeatCount="indefinite"/>
+        </path>
+      </symbol>
+    </defs>
+  </svg>
 
-  <h3>Test Email Sender</h3>
+  <!-- Background FX -->
+  <canvas id="bg-canvas" class="bg-canvas"></canvas>
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="blob b3"></div>
+  <div class="grain"></div>
 
-  <div class="cf-turnstile"
-       data-sitekey="0x4AAAAAADk-7U08EFjQBh3O"
-       data-callback="onTurnstileSuccess">
+  <div class="signin-container">
+    <div class="signin-card">
+      <!-- Logo -->
+      <div class="logo">
+        <div class="mark" style="width:52px;height:52px">
+          <svg width="52" height="52"><use href="#sc-logo"/></svg>
+        </div>
+        <div class="logo-text">
+          <span class="grad">SC Space</span>
+        </div>
+      </div>
+
+      <!-- Header -->
+      <div class="signin-header">
+        <h1>Welcome back</h1>
+        <p>Sign in to continue to your SC Space workspace</p>
+        
+        <div class="account-note">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="#42e2b8" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M12 22V12" stroke="#42e2b8" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M22 7L12 12L2 7" stroke="#42e2b8" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+          <span>If you do not have an account, a new one will be created automatically.</span>
+        </div>
+      </div>
+
+      <!-- Form -->
+      <div>
+        <div class="form-group">
+          <label for="email">Email address</label>
+          <input type="email" id="email" class="email-input" placeholder="you@domain.com" autocomplete="email" required>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <div class="password-row">
+            <input type="password" id="password" class="email-input" placeholder="••••••••" autocomplete="current-password" required>
+            <button type="button" onclick="generateStrongPassword()" class="btn btn-ghost generate-btn" title="Generate Strong Password" aria-label="Generate Strong Password">
+              ✨
+            </button>
+          </div>
+        </div>
+
+        <!-- Cloudflare Turnstile -->
+        <div class="turnstile-wrapper">
+          <div class="cf-turnstile"
+               data-sitekey="0x4AAAAAADk-7U08EFjQBh3O"
+               data-callback="onTurnstileSuccess"
+               data-theme="dark">
+          </div>
+        </div>
+
+        <button id="submit-btn" class="btn btn-primary" onclick="sendSignIn()">
+          <span id="btn-text">Continue with email</span>
+          <span class="shine"></span>
+        </button>
+
+        <!-- Status messages -->
+        <div id="status" class="status"></div>
+      </div>
+
+      <div class="signin-footer">
+        Need help? <a href="#">Contact support</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Modal -->
+  <div id="modal-overlay" class="modal-overlay">
+    <div class="modal">
+      <h3 id="modal-title"></h3>
+      <p id="modal-message"></p>
+      <div class="modal-buttons" id="modal-buttons">
+        <!-- Buttons injected via JS -->
+      </div>
+    </div>
   </div>
 
   <script>
+    // ============================= STARFIELD CANVAS =============================
+    (function() {
+      const c = document.getElementById('bg-canvas');
+      const x = c.getContext('2d');
+      let W, H, stars = [];
+      
+      function size() {
+        W = c.width = window.innerWidth;
+        H = c.height = window.innerHeight;
+        stars = Array.from({length: Math.min(120, Math.floor(W / 12))}, () => ({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: Math.random() * 1.4 + 0.3,
+          tw: Math.random() * Math.PI * 2,
+          sp: 0.12 + Math.random() * 0.35
+        }));
+      }
+      
+      size();
+      window.addEventListener('resize', size);
+      
+      let scrollV = 0;
+      window.addEventListener('scroll', () => { scrollV = window.scrollY; }, {passive: true});
+      
+      (function draw(t) {
+        x.clearRect(0, 0, W, H);
+        for (const s of stars) {
+          const a = .22 + .6 * Math.abs(Math.sin(t / 1300 + s.tw));
+          const yy = (s.y - scrollV * s.sp * 0.1) % H;
+          const py = yy < 0 ? yy + H : yy;
+          x.globalAlpha = a;
+          x.fillStyle = '#aebcff';
+          x.beginPath();
+          x.arc(s.x, py, s.r, 0, 7);
+          x.fill();
+        }
+        x.globalAlpha = 1;
+        requestAnimationFrame(draw);
+      })(0);
+    })();
+
+    // ============================= PASSWORD GENERATOR =============================
+    function generateStrongPassword() {
+      const length = 16;
+      const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+{}[]";
+      let password = "";
+      for (let i = 0; i < length; i++) {
+        password += charset.charAt(Math.floor(Math.random() * charset.length));
+      }
+      const pwdInput = document.getElementById('password');
+      pwdInput.value = password;
+      pwdInput.type = 'text';
+      setTimeout(() => {
+        pwdInput.type = 'password';
+      }, 1400);
+    }
+
+    // ============================= CUSTOM MODAL =============================
+    function showModal(title, message, buttons = []) {
+      const overlay = document.getElementById('modal-overlay');
+      const titleEl = document.getElementById('modal-title');
+      const messageEl = document.getElementById('modal-message');
+      const buttonsContainer = document.getElementById('modal-buttons');
+
+      titleEl.textContent = title;
+      messageEl.textContent = message;
+      buttonsContainer.innerHTML = '';
+
+      buttons.forEach((btn, index) => {
+        const buttonEl = document.createElement('button');
+        buttonEl.className = `modal-btn ${btn.primary ? 'primary' : 'secondary'}`;
+        buttonEl.textContent = btn.text;
+        buttonEl.onclick = () => {
+          overlay.classList.remove('show');
+          if (btn.onClick) btn.onClick();
+        };
+        buttonsContainer.appendChild(buttonEl);
+      });
+
+      overlay.classList.add('show');
+    }
+
+    function hideModal() {
+      document.getElementById('modal-overlay').classList.remove('show');
+    }
+
+    // ============================= AUTO SIGN-IN FROM LOCALSTORAGE =============================
+    function checkForSavedCredentials() {
+      const lastEmail = localStorage.getItem('sc_last_email');
+      if (!lastEmail) return false;
+
+      showModal(
+        "Welcome back",
+        `Would you like to sign in as ${lastEmail}?`,
+        [
+          {
+            text: "Yes, sign me in",
+            primary: true,
+            onClick: () => {
+              document.getElementById('email').value = lastEmail;
+              // Wait for turnstile before auto-signing
+              setTimeout(() => {
+                if (latestToken) {
+                  sendSignIn(true);
+                } else {
+                  // Turnstile not ready yet - user will need to click manually
+                  showModal(
+                    "Almost there",
+                    "Please wait for the security check to complete, then click Continue.",
+                    [{ text: "OK", primary: true }]
+                  );
+                }
+              }, 300);
+            }
+          },
+          {
+            text: "No, enter manually",
+            primary: false,
+            onClick: () => {}
+          }
+        ]
+      );
+      
+      return true;
+    }
+
+    // ============================= INITIAL PAGE LOAD =============================
+    function initPage() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tokenParam = urlParams.get('token');
+
+      if (tokenParam) {
+        showWelcomeScreen(tokenParam);
+        return;
+      }
+
+      const hasSaved = checkForSavedCredentials();
+      
+      if (!hasSaved) {
+        setTimeout(() => {
+          const emailField = document.getElementById('email');
+          if (emailField) emailField.focus();
+        }, 800);
+      }
+    }
+
+    function showWelcomeScreen(token) {
+      const container = document.querySelector('.signin-container');
+      
+      container.innerHTML = `
+        <div class="signin-card" style="text-align:center;padding:52px 40px">
+          <div class="logo" style="margin-bottom:32px;justify-content:center">
+            <div class="mark" style="width:58px;height:58px">
+              <svg width="58" height="58"><use href="#sc-logo"/></svg>
+            </div>
+          </div>
+          
+          <h1 style="font-size:2.1rem;margin-bottom:12px">Welcome to SC Space</h1>
+          <p style="color:var(--muted);font-size:1.05rem;margin-bottom:36px">
+            You have been successfully signed in.
+          </p>
+          
+          <div style="background:rgba(66,226,184,.08);border:1px solid rgba(66,226,184,.25);border-radius:14px;padding:18px 22px;margin-bottom:30px">
+            <div style="font-size:0.9rem;color:#a1e8c9">Your session token is ready.</div>
+          </div>
+          
+          <button onclick="window.location.href = window.location.pathname" class="btn btn-primary" style="max-width:220px">
+            Continue to dashboard
+          </button>
+        </div>
+      `;
+    }
+
+    // ============================= SIGN IN LOGIC =============================
     let latestToken = null;
 
     function onTurnstileSuccess(token) {
       latestToken = token;
-      console.log("Turnstile ready");
     }
 
-    async function sendEmail() {
-      if (!latestToken) {
-        alert("Turnstile not ready yet. Wait a second and try again.");
+    function showStatus(message, type = 'success') {
+      const statusEl = document.getElementById('status');
+      if (!statusEl) return;
+      
+      statusEl.className = `status ${type} show`;
+      statusEl.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          ${type === 'success' 
+            ? '<path d="M20 6L9 17L4 12" stroke="#42e2b8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
+            : '<path d="M18 6L6 18M6 6L18 18" stroke="#ff9b9b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
+          }
+        </svg>
+        <span>${message}</span>
+      `;
+    }
+
+    function resetButton() {
+      const btn = document.getElementById('submit-btn');
+      const btnText = document.getElementById('btn-text');
+      if (!btn || !btnText) return;
+      btn.disabled = false;
+      btnText.textContent = 'Continue with email';
+    }
+
+    async function sendSignIn(isAuto = false) {
+      const btn = document.getElementById('submit-btn');
+      const btnText = document.getElementById('btn-text');
+      const emailInput = document.getElementById('email');
+      const passwordInput = document.getElementById('password');
+      
+      if (!emailInput || !passwordInput) return;
+
+      const email = emailInput.value.trim();
+      const password = passwordInput.value.trim();
+
+      if (!email) {
+        showModal("Missing email", "Please enter your email address.", [
+          { text: "OK", primary: true }
+        ]);
         return;
       }
 
-      const email = "nathan.liu7@education.nsw.gov.au";
+      if (!latestToken && !isAuto) {
+        showModal(
+          "Security check not ready",
+          "Please wait for the security verification to complete, then try again.",
+          [{ text: "OK", primary: true }]
+        );
+        return;
+      }
 
-      const url =
-        "https://sc-auth.chibbit.deno.net/?email=" +
-        encodeURIComponent(email) +
-        "&token=" +
-        encodeURIComponent(latestToken);
+      if (btn && btnText) {
+        btn.disabled = true;
+        btnText.textContent = 'Signing in...';
+      }
 
-      const res = await fetch(url);
-
-      const text = await res.text(); // safer than json for debugging
-
-      console.log("Response:", text);
+      const statusEl = document.getElementById('status');
+      if (statusEl) statusEl.classList.remove('show');
 
       try {
-        alert(JSON.stringify(JSON.parse(text), null, 2));
-      } catch {
-        alert(text);
+        let url = `https://sc-auth.chibbit.deno.net/?email=${encodeURIComponent(email)}&token=${encodeURIComponent(latestToken || '')}`;
+        
+        if (password) {
+          url += `&password=${encodeURIComponent(password)}`;
+        }
+
+        const res = await fetch(url);
+        
+        if (!res.ok) {
+          throw new Error(`Server returned ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        if (data.message === "Email sent") {
+          showStatus("Magic link sent! Please check your email inbox (and spam folder).", 'success');
+          latestToken = null;
+          localStorage.setItem('sc_last_email', email);
+          
+        } 
+        else if (data.message === "Token exists") {
+          if (data.token) {
+            localStorage.setItem('sc_last_email', email);
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('token', data.token);
+            window.location.href = currentUrl.toString();
+          } else {
+            showStatus("Something went wrong. Please try again.", 'error');
+          }
+        }
+        else if (data.message === "Invalid Credentials") {
+          showStatus("Invalid email or password. Please try again.", 'error');
+        }
+        else {
+          showStatus(data.message || "Unexpected response from server.", 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showStatus("Failed to sign in. Please try again later.", 'error');
+      } finally {
+        resetButton();
       }
     }
+
+    function setupEnterKeyListeners() {
+      const emailField = document.getElementById('email');
+      const passwordField = document.getElementById('password');
+      
+      if (emailField) {
+        emailField.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') sendSignIn();
+        });
+      }
+      
+      if (passwordField) {
+        passwordField.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') sendSignIn();
+        });
+      }
+    }
+
+    window.onload = function() {
+      initPage();
+      setupEnterKeyListeners();
+    };
   </script>
-
-  <button onclick="sendEmail()">Send Email</button>
-
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a0d88434b936a7ad',t:'MTc4MTc2NzA2OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
