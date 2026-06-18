@@ -2,6 +2,57 @@ import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const TURNSTILE_SECRET = Deno.env.get("TURNSTILE_SECRET")!;
 
+const DATABASE_URL = Deno.env.get("DATABASE_URL_SECRET")!;
+
+/**
+ * Reads data from a path.
+ */
+export async function readPath(path: string = ""): Promise<any> {
+    const url = `${DATABASE_URL}/${path}.json`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+        throw new Error(`Read failed: ${response.status}`);
+    }
+
+    return await response.json();
+}
+
+/**
+ * Updates data at a path (PATCH).
+ */
+export async function updatePath(path: string, data: any): Promise<void> {
+    const url = `${DATABASE_URL}/${path}.json`;
+
+    const response = await fetch(url, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+        throw new Error(`Update failed: ${response.status}`);
+    }
+}
+
+/**
+ * Deletes data at a path.
+ */
+export async function deletePath(path: string): Promise<void> {
+    const url = `${DATABASE_URL}/${path}.json`;
+
+    const response = await fetch(url, {
+        method: "DELETE"
+    });
+
+    if (!response.ok) {
+        throw new Error(`Delete failed: ${response.status}`);
+    }
+}
+
 // ---------------- CORS ----------------
 
 function cors(res: Response) {
