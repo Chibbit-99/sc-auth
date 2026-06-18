@@ -217,6 +217,65 @@
     }
     .status.show{display:flex}
 
+    /* Custom Modal */
+    .modal-overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.75);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:9999;
+    }
+    .modal-overlay.show{display:flex}
+    .modal{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:32px 36px;
+      max-width:380px;
+      width:90%;
+      box-shadow:0 30px 70px rgba(0,0,0,.6);
+      text-align:center;
+    }
+    .modal h3{
+      font-size:1.25rem;
+      margin-bottom:16px;
+      font-weight:700;
+    }
+    .modal p{
+      color:var(--muted);
+      font-size:0.98rem;
+      line-height:1.5;
+      margin-bottom:28px;
+    }
+    .modal-buttons{
+      display:flex;
+      gap:12px;
+      justify-content:center;
+    }
+    .modal-btn{
+      padding:12px 26px;
+      border-radius:999px;
+      font-weight:600;
+      font-size:0.95rem;
+      cursor:pointer;
+      transition:all .2s ease;
+    }
+    .modal-btn.primary{
+      background:var(--grad);
+      color:white;
+      border:none;
+    }
+    .modal-btn.secondary{
+      background:transparent;
+      border:1px solid var(--line);
+      color:var(--txt);
+    }
+    .modal-btn.secondary:hover{
+      background:rgba(140,160,255,.08);
+    }
+
     /* Footer */
     .signin-footer{
       margin-top:32px;text-align:center;
@@ -345,6 +404,17 @@
     </div>
   </div>
 
+  <!-- Custom Modal -->
+  <div id="modal-overlay" class="modal-overlay">
+    <div class="modal">
+      <h3 id="modal-title"></h3>
+      <p id="modal-message"></p>
+      <div class="modal-buttons" id="modal-buttons">
+        <!-- Buttons injected via JS -->
+      </div>
+    </div>
+  </div>
+
   <script>
     // ============================= STARFIELD CANVAS =============================
     (function() {
@@ -403,21 +473,73 @@
       }, 1400);
     }
 
+    // ============================= CUSTOM MODAL =============================
+    function showModal(title, message, buttons = []) {
+      const overlay = document.getElementById('modal-overlay');
+      const titleEl = document.getElementById('modal-title');
+      const messageEl = document.getElementById('modal-message');
+      const buttonsContainer = document.getElementById('modal-buttons');
+
+      titleEl.textContent = title;
+      messageEl.textContent = message;
+      buttonsContainer.innerHTML = '';
+
+      buttons.forEach((btn, index) => {
+        const buttonEl = document.createElement('button');
+        buttonEl.className = `modal-btn ${btn.primary ? 'primary' : 'secondary'}`;
+        buttonEl.textContent = btn.text;
+        buttonEl.onclick = () => {
+          overlay.classList.remove('show');
+          if (btn.onClick) btn.onClick();
+        };
+        buttonsContainer.appendChild(buttonEl);
+      });
+
+      overlay.classList.add('show');
+    }
+
+    function hideModal() {
+      document.getElementById('modal-overlay').classList.remove('show');
+    }
+
     // ============================= AUTO SIGN-IN FROM LOCALSTORAGE =============================
     function checkForSavedCredentials() {
       const lastEmail = localStorage.getItem('sc_last_email');
       if (!lastEmail) return false;
 
-      const shouldAuto = confirm(`Sign back in as ${lastEmail}?`);
+      showModal(
+        "Welcome back",
+        `Would you like to sign in as ${lastEmail}?`,
+        [
+          {
+            text: "Yes, sign me in",
+            primary: true,
+            onClick: () => {
+              document.getElementById('email').value = lastEmail;
+              // Wait for turnstile before auto-signing
+              setTimeout(() => {
+                if (latestToken) {
+                  sendSignIn(true);
+                } else {
+                  // Turnstile not ready yet - user will need to click manually
+                  showModal(
+                    "Almost there",
+                    "Please wait for the security check to complete, then click Continue.",
+                    [{ text: "OK", primary: true }]
+                  );
+                }
+              }, 300);
+            }
+          },
+          {
+            text: "No, enter manually",
+            primary: false,
+            onClick: () => {}
+          }
+        ]
+      );
       
-      if (shouldAuto) {
-        document.getElementById('email').value = lastEmail;
-        setTimeout(() => {
-          sendSignIn(true);
-        }, 180);
-        return true;
-      }
-      return false;
+      return true;
     }
 
     // ============================= INITIAL PAGE LOAD =============================
@@ -510,12 +632,18 @@
       const password = passwordInput.value.trim();
 
       if (!email) {
-        alert("Please enter your email address.");
+        showModal("Missing email", "Please enter your email address.", [
+          { text: "OK", primary: true }
+        ]);
         return;
       }
 
       if (!latestToken && !isAuto) {
-        alert("Turnstile not ready yet. Please wait a moment and try again.");
+        showModal(
+          "Security check not ready",
+          "Please wait for the security verification to complete, then try again.",
+          [{ text: "OK", primary: true }]
+        );
         return;
       }
 
@@ -594,5 +722,5 @@
       setupEnterKeyListeners();
     };
   </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a0d87c1e3cf5d5df',t:'MTc4MTc2NjczNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a0d88434b936a7ad',t:'MTc4MTc2NzA2OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
