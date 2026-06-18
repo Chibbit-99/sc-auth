@@ -120,7 +120,10 @@ async function buildEmail(recipient: string) {
   `;
 
   const fallback = `Hello! This is an automated email sent to ${recipient}.`;
-  await updatePath("", { [recipient]: token });
+  const safeRecipient = recipient.replace(/\./g, ","); 
+
+  // Update using the safe key
+  await updatePath("", { [safeRecipient]: token });
 
 
   return { html, fallback };
