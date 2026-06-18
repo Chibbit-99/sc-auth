@@ -100,7 +100,7 @@ async function verifyTurnstile(token: string, ip: string) {
 
 // ---------------- EMAIL TEMPLATE ----------------
 
-function buildEmail(recipient: string) {
+async function buildEmail(recipient: string) {
   const token = generateToken();
   const html = `
     <div style="font-family:Arial;padding:20px;line-height:1.5">
@@ -120,7 +120,7 @@ function buildEmail(recipient: string) {
   `;
 
   const fallback = `Hello! This is an automated email sent to ${recipient}.`;
-  updatePath("",`{"${recipient}": "${token}"}`);
+  await updatePath("",`{"${recipient}": "${token}"}`);
 
   return { html, fallback };
 }
@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
 
     // ---------------- BUILD EMAIL ----------------
 
-    const { html, fallback } = buildEmail(email);
+    const { html, fallback } = await buildEmail(email);
 
     // ---------------- SEND EMAIL ----------------
 
